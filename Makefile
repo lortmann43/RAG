@@ -1,7 +1,8 @@
 MAIN = main.py
 SRC = src
 
-install: uv sync
+install:
+		uv sync
 
 run: install
 		uv run python3 $(MAIN)
