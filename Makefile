@@ -1,11 +1,10 @@
-MAIN = main.py
 SRC = src
 
 install:
 		uv sync
 
 run: install
-		uv run python3 $(MAIN)
+		uv run python3 -m SRC
 
 debug: install
 		uv run python3 -m pdb $(MAIN)
@@ -27,8 +26,7 @@ clean:
 		find . -name "*.pyc" -exec rm -f {} \;
 		find . -type d -name "__pycache__" -exec rm -r {} \+
 
-fclean:
-		fclean: clean
+fclean: clean
 		rm -rf .venv
 
 re: fclean run
