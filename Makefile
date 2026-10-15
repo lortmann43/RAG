@@ -4,10 +4,10 @@ install:
 		uv sync
 
 run: install
-		uv run python3 -m SRC
+		uv run python3 -m $(SRC)
 
 debug: install
-		uv run python3 -m pdb $(MAIN)
+		uv run python3 -m pdb -m $(SRC)
 
 lint: install
 		uv run flake8 $(SRC)
