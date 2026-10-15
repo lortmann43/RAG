@@ -7,6 +7,7 @@ from .retriever import Retriever
 from .models.rag_dataset_model import RagDataset
 from .models.minimal_search_answer_models import MinimalSearchResults
 from .models.student_search_answer_model import StudentSearchResults
+from uuid import uuid4
 
 
 class RagCLI:
@@ -37,6 +38,41 @@ class RagCLI:
         print(f"Indexed {len(indexer.chunks)} chunks")
         print(f"Index saved to: {save_directory}")
         print(f"Indexing time: {elapsed:.2f} seconds")
+
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        index_directory: str = "data/processed",
+        source_directory: str = "data/raw/vllm-0.10.1",
+    ) -> None:
+        """Search the index for relevant source locations."""
+        try:
+            if k < 0:
+                raise ValueError("k cannot be negative")
+
+            retriever = Retriever(
+                index_directory=Path(index_directory),
+                source_directory=Path(source_directory),
+            )
+
+            sources = retriever.search(query, k)
+
+            result = MinimalSearchResults(
+                question_id=str(uuid4()),
+                question=query,
+                retrieved_sources=sources,
+            )
+
+            output = StudentSearchResults(
+                search_results=[result],
+                k=k,
+            )
+
+            print(output.model_dump_json(indent=2))
+
+        except (OSError, ValueError) as exc:
+            print(f"Search failed: {exc}")
 
     def search_dataset(
             self,
