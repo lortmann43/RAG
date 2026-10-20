@@ -4,6 +4,7 @@ from time import perf_counter
 from .indexer import Indexer
 from tqdm import tqdm
 from .retriever import Retriever
+from .evaluator import Evaluator
 from .models.rag_dataset_model import RagDataset
 from .models.minimal_search_answer_models import MinimalSearchResults
 from .models.student_search_answer_model import StudentSearchResults
@@ -132,6 +133,40 @@ class RagCLI:
 
         except (OSError, ValueError) as exc:
             print(f"Dataset search failed: {exc}")
+
+    def evaluate(
+        self,
+        student_search_results_path: str,
+        dataset_path: str,
+    ) -> None:
+        """Evaluate retrieval quality against ground truth."""
+        try:
+            results = StudentSearchResults.model_validate_json(
+                Path(student_search_results_path).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            dataset = RagDataset.model_validate_json(
+                Path(dataset_path).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            evaluator = Evaluator(dataset)
+
+            print("\nEvaluation Results")
+            print("=" * 40)
+
+            for k in (1, 3, 5, 10):
+                if k > results.k:
+                    continue
+
+                score = evaluator.recall_at_k(results, k)
+                print(f"Recall@{k}: {score:.2%}")
+
+        except (OSError, ValueError) as exc:
+            print(f"Evaluation failed: {exc}")
 
 
 if __name__ == "__main__":
