@@ -5,9 +5,11 @@ from .indexer import Indexer
 from tqdm import tqdm
 from .retriever import Retriever
 from .evaluator import Evaluator
+from .pipeline import RagPipeline
 from .models.rag_dataset_model import RagDataset
 from .models.minimal_search_answer_models import MinimalSearchResults
-from .models.student_search_answer_model import StudentSearchResults
+from .models.student_search_answer_model import (
+    StudentSearchResults, StudentSearchResultsAndAnswer)
 from uuid import uuid4
 
 
@@ -167,6 +169,49 @@ class RagCLI:
 
         except (OSError, ValueError) as exc:
             print(f"Evaluation failed: {exc}")
+
+    def answer(
+            self,
+            query: str,
+            k: int = 5,
+            index_directory: str = "data/processed",
+            source_directory: str = "data/raw/vllm-0.10.1",
+            save_directory: str = "data/output/search_results_and_answer/single"
+    ) -> None:
+        """Retrieve sources and generate an answer using Qwen."""
+        try:
+            if not query.strip():
+                raise ValueError("Question cannot be empty")
+
+            if k < 0:
+                raise ValueError("k cannot be negative")
+
+            pipeline = RagPipeline(
+                index_directory=Path(index_directory),
+                source_directory=Path(source_directory)
+            )
+
+            result = pipeline.answer(query, k)
+
+            output = StudentSearchResultsAndAnswer(
+                search_results=[result],
+                k=k
+            )
+
+            directory = Path(save_directory)
+            directory.mkdir(parents=True, exist_ok=True)
+
+            output_path = directory / f"{result.question_id}.json"
+            output_path.write_text(
+                output.model_dump_json(indent=2),
+                encoding="utf-8",
+            )
+
+            print(output.model_dump_json(indent=2))
+            print(f"\nSaved answer to: {output_path}")
+
+        except (OSError, ValueError) as exc:
+            print(f"Answer generation failed: {exc}")
 
 
 if __name__ == "__main__":
