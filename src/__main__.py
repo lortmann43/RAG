@@ -7,7 +7,8 @@ from .retriever import Retriever
 from .evaluator import Evaluator
 from .pipeline import RagPipeline
 from .models.rag_dataset_model import RagDataset
-from .models.minimal_search_answer_models import MinimalSearchResults, MinimalAnswer
+from .models.minimal_search_answer_models import (MinimalSearchResults,
+                                                  MinimalAnswer)
 from .models.student_search_answer_model import (
     StudentSearchResults, StudentSearchResultsAndAnswer)
 from uuid import uuid4
@@ -176,7 +177,8 @@ class RagCLI:
             k: int = 5,
             index_directory: str = "data/processed",
             source_directory: str = "data/raw/vllm-0.10.1",
-            save_directory: str = "data/output/search_results_and_answer/single"
+            save_directory: str =
+            "data/output/search_results_and_answer/single"
     ) -> None:
         """Retrieve sources and generate an answer using Qwen."""
         try:
@@ -219,55 +221,103 @@ class RagCLI:
         context_k: int = 3,
         save_directory: str = "data/output/search_results_and_answer",
         index_directory: str = "data/processed",
-        source_directory: str = "data/raw/vllm-0.10.1"
+        source_directory: str = "data/raw/vllm-0.10.1",
+        resume: bool = True,
     ) -> None:
-        """Generate answers for previously retrieved search results."""
+        """Generate answers and resume from existing checkpoints."""
         try:
             if context_k < 0:
                 raise ValueError("context_k cannot be negative")
 
             path = Path(search_results_path)
-
             search_results = StudentSearchResults.model_validate_json(
                 path.read_text(encoding="utf-8")
             )
 
-            pipeline = RagPipeline(
-                index_directory=Path(index_directory),
-                source_directory=Path(source_directory)
-            )
+            directory = Path(save_directory)
+            directory.mkdir(parents=True, exist_ok=True)
+            output_path = directory / path.name
 
-            answers: list[MinimalAnswer] = []
+            completed: dict[str, MinimalAnswer] = {}
+
+            # Load previously generated answers
+            if resume and output_path.exists():
+                previous = StudentSearchResultsAndAnswer.model_validate_json(
+                    output_path.read_text(encoding="utf-8")
+                )
+
+                if previous.k != search_results.k:
+                    raise ValueError("Checkpoint k does not match input")
+
+                original_by_id = {
+                    item.question_id: item
+                    for item in search_results.search_results
+                }
+
+                for answer in previous.search_results:
+                    original = original_by_id.get(answer.question_id)
+
+                    if (
+                        original is None
+                        or answer.question != original.question
+                        or answer.retrieved_sources !=
+                        original.retrieved_sources
+                    ):
+                        raise ValueError("Checkpoint does not match input")
+
+                    completed[answer.question_id] = answer
+
+                print(f"Resuming: {len(completed)} answers already saved")
+
+            pipeline: RagPipeline | None = None
 
             for result in tqdm(
                 search_results.search_results,
                 desc="Generating answers",
-                unit="question"
+                unit="question",
             ):
+                if result.question_id in completed:
+                    continue
+
+                # Only load Qwen when generation is needed
+                if pipeline is None:
+                    pipeline = RagPipeline(
+                        index_directory=Path(index_directory),
+                        source_directory=Path(source_directory),
+                    )
+
                 answer = pipeline.answer_from_sources(
                     question=result.question,
                     sources=result.retrieved_sources,
                     question_id=result.question_id,
-                    context_k=context_k
+                    context_k=context_k,
                 )
 
-                answers.append(answer)
+                completed[result.question_id] = answer
 
-            output = StudentSearchResultsAndAnswer(
-                search_results=answers,
-                k=search_results.k
+                # Preserve the original question order
+                answers = [
+                    completed[item.question_id]
+                    for item in search_results.search_results
+                    if item.question_id in completed
+                ]
+
+                output = StudentSearchResultsAndAnswer(
+                    search_results=answers,
+                    k=search_results.k,
+                )
+
+                temp_path = output_path.with_suffix(".json.tmp")
+                temp_path.write_text(
+                    output.model_dump_json(indent=2),
+                    encoding="utf-8",
+                )
+                temp_path.replace(output_path)
+
+            print(
+                f"Completed {len(completed)}/"
+                f"{len(search_results.search_results)} questions"
             )
-
-            directory = Path(save_directory)
-            directory.mkdir(parents=True, exist_ok=True)
-
-            output_path = directory / path.name
-            output_path.write_text(
-                output.model_dump_json(indent=2),
-                encoding="utf-8"
-            )
-
-            print(f"Saved {len(answers)} answers to {output_path}")
 
         except (OSError, ValueError) as exc:
             print(f"Dataset answer generation failed: {exc}")

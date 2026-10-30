@@ -45,7 +45,7 @@ class Generator:
                     "configuration value, or code identifier, provide the "
                     "exact information found in the context. "
                     "For commands, include all relevant arguments and flags. "
-                    "Never replace known arguments with '...' or placeholders. "
+                    "Never replace known arguments with '...' or placeholders."
                     "If the context does not provide the complete answer, "
                     "say so instead of inventing missing details. "
                 ),
