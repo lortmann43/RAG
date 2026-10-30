@@ -41,6 +41,13 @@ class Generator:
                     "If the answer is not in the context, "
                     "say you do not have enough information. "
                     "Keep your answer short and precise."
+                    "When the question asks for a command, API endpoint, "
+                    "configuration value, or code identifier, provide the "
+                    "exact information found in the context. "
+                    "For commands, include all relevant arguments and flags. "
+                    "Never replace known arguments with '...' or placeholders. "
+                    "If the context does not provide the complete answer, "
+                    "say so instead of inventing missing details. "
                 ),
             },
             {

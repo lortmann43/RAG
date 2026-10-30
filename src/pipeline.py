@@ -25,14 +25,22 @@ class RagPipeline:
             self,
             question: str,
             sources: list[MinimalSource],
-            question_id: str | None = None
+            question_id: str | None = None,
+            context_k: int | None = None
     ) -> MinimalAnswer:
         """Generate an answer from previously retrieved sources."""
         if not question.strip():
             raise ValueError("Question cannot be empty")
 
-        if sources:
-            context = build_context(sources)
+        if context_k is not None and context_k < 0:
+            raise ValueError("context_k cannot be negative")
+
+        selected_sources = (
+            sources if context_k is None else sources[:context_k]
+        )
+
+        if selected_sources:
+            context = build_context(selected_sources)
             answer = self.generator.generate(question, context)
         else:
             answer = "Not enough information to answer"
@@ -47,7 +55,8 @@ class RagPipeline:
     def answer(
             self,
             question: str,
-            k: int = 5
+            k: int = 5,
+            context_k: int | None = None
     ) -> MinimalAnswer:
         """Retrieve relevant sources and generate an answer."""
         if k < 0:
@@ -55,4 +64,4 @@ class RagPipeline:
 
         sources = self.retriever.search(question, k)
 
-        return self.answer_from_sources(question, sources)
+        return self.answer_from_sources(question, sources, context_k=context_k)

@@ -7,7 +7,7 @@ from .retriever import Retriever
 from .evaluator import Evaluator
 from .pipeline import RagPipeline
 from .models.rag_dataset_model import RagDataset
-from .models.minimal_search_answer_models import MinimalSearchResults
+from .models.minimal_search_answer_models import MinimalSearchResults, MinimalAnswer
 from .models.student_search_answer_model import (
     StudentSearchResults, StudentSearchResultsAndAnswer)
 from uuid import uuid4
@@ -212,6 +212,65 @@ class RagCLI:
 
         except (OSError, ValueError) as exc:
             print(f"Answer generation failed: {exc}")
+
+    def answer_dataset(
+        self,
+        search_results_path: str,
+        context_k: int = 3,
+        save_directory: str = "data/output/search_results_and_answer",
+        index_directory: str = "data/processed",
+        source_directory: str = "data/raw/vllm-0.10.1"
+    ) -> None:
+        """Generate answers for previously retrieved search results."""
+        try:
+            if context_k < 0:
+                raise ValueError("context_k cannot be negative")
+
+            path = Path(search_results_path)
+
+            search_results = StudentSearchResults.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+
+            pipeline = RagPipeline(
+                index_directory=Path(index_directory),
+                source_directory=Path(source_directory)
+            )
+
+            answers: list[MinimalAnswer] = []
+
+            for result in tqdm(
+                search_results.search_results,
+                desc="Generating answers",
+                unit="question"
+            ):
+                answer = pipeline.answer_from_sources(
+                    question=result.question,
+                    sources=result.retrieved_sources,
+                    question_id=result.question_id,
+                    context_k=context_k
+                )
+
+                answers.append(answer)
+
+            output = StudentSearchResultsAndAnswer(
+                search_results=answers,
+                k=search_results.k
+            )
+
+            directory = Path(save_directory)
+            directory.mkdir(parents=True, exist_ok=True)
+
+            output_path = directory / path.name
+            output_path.write_text(
+                output.model_dump_json(indent=2),
+                encoding="utf-8"
+            )
+
+            print(f"Saved {len(answers)} answers to {output_path}")
+
+        except (OSError, ValueError) as exc:
+            print(f"Dataset answer generation failed: {exc}")
 
 
 if __name__ == "__main__":
