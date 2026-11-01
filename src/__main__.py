@@ -218,7 +218,7 @@ class RagCLI:
 
     def answer_dataset(
         self,
-        search_results_path: str,
+        student_search_results_path: str,
         context_k: int = 3,
         save_directory: str = "data/output/search_results_and_answer",
         index_directory: str = "data/processed",
@@ -230,7 +230,7 @@ class RagCLI:
             if context_k < 0:
                 raise ValueError("context_k cannot be negative")
 
-            path = Path(search_results_path)
+            path = Path(student_search_results_path)
             search_results = StudentSearchResults.model_validate_json(
                 path.read_text(encoding="utf-8")
             )
