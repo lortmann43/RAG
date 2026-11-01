@@ -178,7 +178,8 @@ class RagCLI:
             index_directory: str = "data/processed",
             source_directory: str = "data/raw/vllm-0.10.1",
             save_directory: str =
-            "data/output/search_results_and_answer/single"
+            "data/output/search_results_and_answer/single",
+            context_k: int = 3
     ) -> None:
         """Retrieve sources and generate an answer using Qwen."""
         try:
@@ -193,7 +194,7 @@ class RagCLI:
                 source_directory=Path(source_directory)
             )
 
-            result = pipeline.answer(query, k)
+            result = pipeline.answer(query, k, context_k=context_k)
 
             output = StudentSearchResultsAndAnswer(
                 search_results=[result],
