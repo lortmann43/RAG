@@ -1,4 +1,5 @@
 import fire
+import sys
 from pathlib import Path
 from time import perf_counter
 from .indexer import Indexer
@@ -35,8 +36,8 @@ class RagCLI:
             indexer.save_index(Path(save_directory))
 
         except (OSError, ValueError) as exc:
-            print(f"Indexing failed: {exc}")
-            return
+            print(f"Indexing failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
         elapsed = perf_counter() - start_time
         print(f"Indexed {len(indexer.chunks)} chunks")
@@ -76,7 +77,8 @@ class RagCLI:
             print(output.model_dump_json(indent=2))
 
         except (OSError, ValueError) as exc:
-            print(f"Search failed: {exc}")
+            print(f"Search failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
     def search_dataset(
             self,
@@ -135,7 +137,8 @@ class RagCLI:
             print(f"Saved {len(results)} results to {output_path}")
 
         except (OSError, ValueError) as exc:
-            print(f"Dataset search failed: {exc}")
+            print(f"Dataset search failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
     def evaluate(
         self,
@@ -169,7 +172,8 @@ class RagCLI:
                 print(f"Recall@{k}: {score:.2%}")
 
         except (OSError, ValueError) as exc:
-            print(f"Evaluation failed: {exc}")
+            print(f"Evaluation failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
     def answer(
             self,
@@ -214,7 +218,8 @@ class RagCLI:
             print(f"\nSaved answer to: {output_path}")
 
         except (OSError, ValueError) as exc:
-            print(f"Answer generation failed: {exc}")
+            print(f"Answer generation failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
     def answer_dataset(
         self,
@@ -321,7 +326,8 @@ class RagCLI:
             )
 
         except (OSError, ValueError) as exc:
-            print(f"Dataset answer generation failed: {exc}")
+            print(f"Dataset answer generation failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from None
 
 
 if __name__ == "__main__":
