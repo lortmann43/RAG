@@ -64,7 +64,7 @@ def test_checkpoint_and_resume(tmp_path: Path) -> None:
 
         with pytest.raises(RuntimeError, match="Simulated interruption"):
             RagCLI().answer_dataset(
-                search_results_path=str(input_path),
+                student_search_results_path=str(input_path),
                 save_directory=str(output_dir),
             )
 
@@ -81,7 +81,7 @@ def test_checkpoint_and_resume(tmp_path: Path) -> None:
         generate.side_effect = [fake_answer(questions[1])]
 
         RagCLI().answer_dataset(
-            search_results_path=str(input_path),
+            student_search_results_path=str(input_path),
             save_directory=str(output_dir),
         )
 
@@ -101,7 +101,7 @@ def test_checkpoint_and_resume(tmp_path: Path) -> None:
         mock_pipeline.reset_mock()
 
         RagCLI().answer_dataset(
-            search_results_path=str(input_path),
+            student_search_results_path=str(input_path),
             save_directory=str(output_dir),
         )
 
