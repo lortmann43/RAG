@@ -14,6 +14,7 @@ from .models.student_search_answer_model import (
     StudentSearchResults, StudentSearchResultsAndAnswer)
 from uuid import uuid4
 from .semantic_retriever import SemanticRetriever
+from .hybrid_retriever import HybridRetriever
 
 
 class RagCLI:
@@ -67,6 +68,12 @@ class RagCLI:
             elif retrieval_method == "semantic":
                 retriever = SemanticRetriever(Path(index_directory))
 
+            elif retrieval_method == "hybrid":
+                retriever = HybridRetriever(
+                    index_directory=Path(index_directory),
+                    source_directory=Path(source_directory)
+                )
+
             else:
                 raise ValueError(
                     f"Unknown retrieval method: {retrieval_method}"
@@ -118,6 +125,12 @@ class RagCLI:
 
             elif retrieval_method == "semantic":
                 retriever = SemanticRetriever(Path(index_directory))
+
+            elif retrieval_method == "hybrid":
+                retriever = HybridRetriever(
+                    index_directory=Path(index_directory),
+                    source_directory=Path(source_directory),
+                )
 
             else:
                 raise ValueError(
