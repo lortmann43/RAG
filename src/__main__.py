@@ -15,6 +15,7 @@ from .models.student_search_answer_model import (
 from uuid import uuid4
 from .semantic_retriever import SemanticRetriever
 from .hybrid_retriever import HybridRetriever
+from .cached_retriever import CachedRetriever, SearchBackend
 
 
 class RagCLI:
@@ -52,12 +53,15 @@ class RagCLI:
         k: int = 5,
         index_directory: str = "data/processed",
         source_directory: str = "data/raw/vllm-0.10.1",
-        retrieval_method: str = "bm25"
+        retrieval_method: str = "bm25",
+        use_cache: bool = False,
     ) -> None:
         """Search the index for relevant source locations."""
         try:
             if k < 0:
                 raise ValueError("k cannot be negative")
+
+            retriever: SearchBackend
 
             if retrieval_method == "bm25":
                 retriever: Retriever | SemanticRetriever = Retriever(
@@ -77,6 +81,13 @@ class RagCLI:
             else:
                 raise ValueError(
                     f"Unknown retrieval method: {retrieval_method}"
+                )
+
+            if use_cache:
+                retriever = CachedRetriever(
+                    backend=retriever,
+                    index_directory=Path(index_directory),
+                    method=retrieval_method,
                 )
 
             sources = retriever.search(query, k)
@@ -105,7 +116,8 @@ class RagCLI:
             save_directory: str = "data/output/search_results",
             index_directory: str = "data/processed",
             source_directory: str = "data/raw/vllm-0.10.1",
-            retrieval_method: str = "bm25"
+            retrieval_method: str = "bm25",
+            use_cache: bool = False
     ) -> None:
         """Retrieve sources for all questions in a dataset."""
         try:
@@ -116,6 +128,8 @@ class RagCLI:
             dataset = RagDataset.model_validate_json(
                 path.read_text(encoding="utf-8")
             )
+
+            retriever: SearchBackend
 
             if retrieval_method == "bm25":
                 retriever: Retriever | SemanticRetriever = Retriever(
@@ -129,12 +143,19 @@ class RagCLI:
             elif retrieval_method == "hybrid":
                 retriever = HybridRetriever(
                     index_directory=Path(index_directory),
-                    source_directory=Path(source_directory),
+                    source_directory=Path(source_directory)
                 )
 
             else:
                 raise ValueError(
                     f"Unknown retrieval method: {retrieval_method}"
+                )
+
+            if use_cache:
+                retriever = CachedRetriever(
+                    backend=retriever,
+                    index_directory=Path(index_directory),
+                    method=retrieval_method
                 )
 
             results: list[MinimalSearchResults] = []
@@ -376,7 +397,6 @@ class RagCLI:
         except (OSError, ValueError) as exc:
             print(f"Semantic indexing failed: {exc}", file=sys.stderr)
             raise SystemExit(1) from None
-
 
 
 if __name__ == "__main__":
