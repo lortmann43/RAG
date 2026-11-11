@@ -203,7 +203,26 @@ The subject imposes the following performance limits:
 
 These two end-to-end timing thresholds still need to be documented with a reproducible benchmark on the final evaluation machine. The recall results alone do not establish that the timing requirements pass.
 
-Generation was tested locally on CPU. Qwen3-0.6B successfully answered questions such as the dynamic LoRA loading endpoint, although extra irrelevant context sometimes reduced answer accuracy. This is why the generation context count (`context_k`) is configurable independently of the retrieval count (`k`). An initial isolated Qwen test took approximately **20–30 seconds including model loading and generation**; this is not a representative full-dataset throughput measurement.
+
+### Runtime Performance
+
+The mandatory BM25 pipeline was benchmarked locally using
+the provided vLLM 0.10.1 corpus.
+
+| Operation | Measured time | Required limit |
+| --- | ---: | ---: |
+| Full corpus indexing | ~10 s | 300 s |
+| Retrieval of 200 questions | ~12 s | 90 s |
+
+The resulting index contained 14,624 chunks from 1,843
+non-empty source files.
+
+All 200 benchmark questions were processed successfully,
+producing 1,000 source locations with valid character offsets.
+
+Both timing requirements were satisfied on the development
+machine. Performance on the evaluation machine may differ.
+
 
 ## Design decisions
 
@@ -261,6 +280,179 @@ Example structured result (abbreviated to one of the retrieved sources):
 ```
 
 This is an illustrative shortened output. Actual output contains the requested number of positively scored retrieval results, up to `k`.
+
+
+## Bonus Features
+
+Four optional features were implemented to extend the
+mandatory RAG pipeline. The default CLI commands continue
+to use BM25 to preserve compatibility with the evaluation scripts.
+
+### 1. Semantic Retrieval
+
+Semantic retrieval uses the Sentence Transformers model
+`sentence-transformers/all-MiniLM-L6-v2`, running locally on CPU.
+
+Each text chunk is converted into a normalized 384-dimensional
+embedding. A query is embedded using the same model, and
+the chunks are ranked by cosine similarity.
+
+Embeddings are stored in `data/processed/semantic/` and can
+be reused without encoding the entire corpus again.
+
+Build the semantic index:
+
+```bash
+uv run python -m src index_semantic
+```
+
+Search using semantic retrieval:
+
+```bash
+uv run python -m src search \
+  "How to configure an OpenAI-compatible server?" \
+  --k 5 \
+  --retrieval_method semantic
+```
+
+Public dataset results at Recall@5:
+- Documentation: 56%
+- Code: 37%
+
+Semantic retrieval recognizes related meanings, but this
+general-purpose embedding model performed worse than BM25
+on the technical evaluation datasets.
+
+### 2. Hybrid Retrieval
+
+Hybrid retrieval combines BM25 and semantic rankings using
+weighted Reciprocal Rank Fusion (RRF).
+
+For a source appearing at rank r, its contribution is:
+
+    score = weight / (60 + r)
+
+The default weights are:
+- BM25: 2.0
+- Semantic: 1.0
+
+The system retrieves additional candidates from both methods,
+combines their ranking scores, and returns the top-k sources.
+
+Example:
+
+```bash
+uv run python -m src search \
+  "How to configure an OpenAI-compatible server?" \
+  --k 5 \
+  --retrieval_method hybrid
+```
+
+Public dataset results at Recall@5:
+- Documentation: 80%
+- Code: 58%
+
+Hybrid retrieval improved code Recall@5 compared with BM25,
+but documentation recall decreased slightly. BM25 therefore
+remains the default retrieval method.
+
+### 3. Persistent Query Caching
+
+The CachedRetriever stores retrieval results in JSON files
+under `data/processed/query_cache/`.
+
+Cache keys include:
+- Search query
+- Requested number of results
+- Retrieval method
+- Index fingerprint
+- Cache version
+
+Repeated queries can reuse previously retrieved results
+without executing the retrieval algorithm again.
+
+Example:
+
+```bash
+uv run python -m src search \
+  "How to configure an OpenAI-compatible server?" \
+  --k 5 \
+  --use_cache=True
+```
+
+Measured retrieval times for one repeated query:
+
+| Execution | Time | Cache |
+| --- | ---: | --- |
+| First | 15.438 ms | Miss |
+| Second | 0.120 ms | Hit |
+| Third | 0.083 ms | Hit |
+
+These timings exclude retriever initialization and measure
+the repeated search operation only.
+
+### 4. Local HTTP API
+
+A local HTTP API is implemented using FastAPI.
+
+It exposes two endpoints:
+
+- `GET /search`: Retrieve source locations using BM25.
+- `POST /answer`: Generate an answer using the RAG pipeline
+  and Qwen3-0.6B.
+
+Start the API:
+
+```bash
+uv run uvicorn src.api:app \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+Interactive API documentation is available at:
+
+    http://127.0.0.1:8000/docs
+
+Example search request:
+
+```bash
+curl -G http://127.0.0.1:8000/search \
+  --data-urlencode "query=What is vLLM?" \
+  --data-urlencode "k=5"
+```
+
+Example answer request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What endpoint loads a LoRA adapter?",
+    "k": 3,
+    "context_k": 3
+  }'
+```
+
+The API uses the same Pydantic response models as the CLI.
+The BM25 retriever and RAG pipeline are cached in memory
+to avoid reloading them for every request.
+
+The server binds to localhost and does not require a
+public network connection.
+
+### Bonus Evaluation Summary
+
+| Feature | Implemented |
+| --- | --- |
+| Semantic embeddings | Yes |
+| Hybrid retrieval | Yes |
+| Incremental indexing | No |
+| Persistent caching | Yes |
+| Local HTTP API | Yes |
+
+Incremental indexing was intentionally not implemented
+to avoid unnecessary complexity and preserve the stability
+of the mandatory retrieval pipeline.
 
 ## Resources
 
