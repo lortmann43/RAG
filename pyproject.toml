@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "bm25s>=0.3.13",
+    "fastapi>=0.162.4",
     "fire>=0.7.1",
     "flake8>=7.4.1",
     "langchain>=1.4.6",
@@ -17,10 +18,12 @@ dependencies = [
     "torch>=2.14.1",
     "tqdm>=4.70.1",
     "transformers>=4.51.0,<5",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.2.0",
 ]
 

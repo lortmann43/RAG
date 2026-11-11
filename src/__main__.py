@@ -64,7 +64,7 @@ class RagCLI:
             retriever: SearchBackend
 
             if retrieval_method == "bm25":
-                retriever: Retriever | SemanticRetriever = Retriever(
+                retriever = Retriever(
                     index_directory=Path(index_directory),
                     source_directory=Path(source_directory)
                 )
@@ -132,7 +132,7 @@ class RagCLI:
             retriever: SearchBackend
 
             if retrieval_method == "bm25":
-                retriever: Retriever | SemanticRetriever = Retriever(
+                retriever = Retriever(
                     index_directory=Path(index_directory),
                     source_directory=Path(source_directory)
                     )
